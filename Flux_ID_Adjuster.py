@@ -65,7 +65,7 @@ class FluxIDAutoAdjuster:
                     "tooltip": "The margin difference required to permanently lock a token (like a pupil). Lower means anchors lock faster; higher requires absolute certainty."
                 }),
                 "contrast_and_texture_floor": ("FLOAT", {
-                    "default": 0.25, "min": -1.0, "max": 1.0, "step": 0.01,
+                    "default": 0.18, "min": -1.0, "max": 1.0, "step": 0.01,
                     "tooltip": "Base similarity cutoff. Increasing this boosts visual contrast and removes noise, but pushing too high creates waxy, over-smoothed skin."
                 }),
             },
@@ -115,7 +115,7 @@ class FluxIDAutoAdjuster:
             _idx_cache[count] = mask_1d
             return mask_1d.to(device)
 
-        if "flux_delta_state" not in m.model_options:
+        if "flux_delta_state" not in m.model_options:            
             m.model_options["flux_delta_state"] = {
                 "step_counter": 0,
                 "last_ts": -1.0,
@@ -129,6 +129,10 @@ class FluxIDAutoAdjuster:
                 "expected_steps": total_sampling_steps,
                 "persistent_life": None,
                 "persistent_anchors": None,
+                "heatmap_accum": None,
+                "ref_accum": None,
+                "raw_sim_accum": None,
+                "block_history": {},
                 "H": None,
                 "W": None
             }
@@ -277,7 +281,11 @@ class FluxIDAutoAdjuster:
                     if state.get("step_hits_accum") is None:
                         state["step_hits_accum"] = identity_gain_hits
                     else:
-                        state["step_hits_accum"] += identity_gain_hits
+                        # Bulletproof shape validation
+                        if state["step_hits_accum"].shape != identity_gain_hits.shape:
+                            state["step_hits_accum"] = identity_gain_hits
+                        else:
+                            state["step_hits_accum"] += identity_gain_hits
 
                 if current_step == 1:
                     if not (is_d_target or is_s_target): 
